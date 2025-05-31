@@ -43,23 +43,34 @@ export const useMealLogging = () => {
    * @param mealData - The complete meal log data.
    */
   const submitMealLog = useCallback(async (mealData: Omit<MealLogData, 'user_id' | 'created_at'>) => {
-    if (!user?.id) throw new Error('User must be logged in to log meals');
+    console.log('useMealLogging: Starting submitMealLog');
+    console.log('useMealLogging: User ID:', user?.id);
+    
+    if (!user?.id) {
+      console.error('useMealLogging: No user ID found');
+      throw new Error('User must be logged in to log meals');
+    }
     
     setIsLogging(true);
     setLogSuccess(false);
     try {
+      console.log('useMealLogging: Preparing complete meal data');
       const completeMealData: MealLogData = {
         ...mealData,
         user_id: user.id,
         created_at: new Date().toISOString()
       };
 
+      console.log('useMealLogging: Validating meal data');
       mealLogSchema.parse(completeMealData);
+      
+      console.log('useMealLogging: Calling logMeal service');
       const response = await logMeal(completeMealData);
-      console.log('Meal logged successfully:', response);
+      console.log('useMealLogging: Meal logged successfully:', response);
       setLogSuccess(true);
       return response;
     } catch (error) {
+      console.error('useMealLogging: Error in submitMealLog:', error);
       handleError(error);
       setLogSuccess(false);
       throw error;

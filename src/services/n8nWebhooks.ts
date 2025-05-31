@@ -6,6 +6,7 @@
 import { supabase } from './supabase';
 
 export interface MealLogData {
+  id?: string;
   user_id: string;
   meal_type: string;
   meal_date: string;
@@ -22,6 +23,11 @@ export interface MealLogData {
   }>;
   notes?: string;
   created_at: string;
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fat: number;
+  source: string;
 }
 
 interface ChatMessageData {
@@ -60,71 +66,72 @@ interface RecommendationRequest {
  * @returns A promise that resolves with the response data from the n8n workflow.
  * @throws An error if the API call fails.
  */
-export const logMeal = async (mealData: MealLogData) => {
-  try {
-    console.log('Sending meal data to n8n:', mealData);
+export const logMeal = async (mealData: MealLogData): Promise<MealLogData> => {
+  console.log('logMeal: Starting meal log process');
+  console.log('logMeal: Received meal data:', JSON.stringify(mealData, null, 2));
 
-    // First, try to save directly to Supabase
-    const { data: mealLogData, error: mealLogError } = await supabase
+  try {
+    // First, insert the meal log
+    console.log('logMeal: Attempting to save meal log to Supabase');
+    const { data: mealLog, error: mealLogError } = await supabase
       .from('meal_logs')
-      .insert([{
+      .insert({
         user_id: mealData.user_id,
         meal_type: mealData.meal_type,
         meal_date: mealData.meal_date,
         meal_time: mealData.meal_time,
         notes: mealData.notes,
-        created_at: mealData.created_at
-      }])
+        created_at: mealData.created_at,
+        total_calories: mealData.total_calories,
+        total_protein: mealData.total_protein,
+        total_carbs: mealData.total_carbs,
+        total_fat: mealData.total_fat,
+        source: mealData.source
+      })
       .select()
       .single();
 
     if (mealLogError) {
-      console.error('Error saving meal log:', mealLogError);
+      console.error('logMeal: Error saving meal log:', mealLogError);
       throw mealLogError;
     }
 
-    console.log('Meal log saved:', mealLogData);
+    console.log('logMeal: Meal log saved successfully:', mealLog);
 
-    // Then save food items
-    const foodItems = mealData.food_items.map(item => ({
-      meal_log_id: mealLogData.id,
-      name: item.name,
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
-      quantity: item.quantity,
-      unit: item.unit,
-      barcode: item.barcode
-    }));
+    // Then, insert the food items
+    if (mealData.food_items && mealData.food_items.length > 0) {
+      console.log('logMeal: Saving food items');
+      const foodItems = mealData.food_items.map(item => ({
+        meal_log_id: mealLog.id,
+        name: item.name,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        quantity: item.quantity,
+        unit: item.unit,
+        barcode: item.barcode
+      }));
 
-    const { error: foodItemsError } = await supabase
-      .from('meal_food_items')
-      .insert(foodItems);
+      const { error: foodItemsError } = await supabase
+        .from('meal_food_items')
+        .insert(foodItems);
 
-    if (foodItemsError) {
-      console.error('Error saving food items:', foodItemsError);
-      throw foodItemsError;
+      if (foodItemsError) {
+        console.error('logMeal: Error saving food items:', foodItemsError);
+        throw foodItemsError;
+      }
+
+      console.log('logMeal: Food items saved successfully');
     }
 
-    // If direct database save is successful, also trigger n8n workflow
-    const response = await fetch('/api/n8n/meal-log', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mealData),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.json();
-      console.error('n8n webhook error:', errorBody);
-      throw new Error(errorBody.message || 'Failed to log meal via n8n.');
-    }
-
-    return response.json();
-  } catch (error: any) {
-    console.error('Error in logMeal service:', error);
+    // Return the complete meal data
+    return {
+      ...mealData,
+      id: mealLog.id
+    };
+  } catch (error) {
+    console.error('logMeal: Error in logMeal service:', error);
     throw error;
   }
 };

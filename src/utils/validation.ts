@@ -155,14 +155,29 @@ export const foodItemSchema = z.object({
   barcode: z.string().optional(),
 });
 
+// Form validation schema (for user input)
+export const mealLogFormSchema = z.object({
+  meal_type: z.string().min(1, 'Meal type is required'),
+  meal_date: z.string().min(1, 'Date is required'),
+  meal_time: z.string().min(1, 'Time is required'),
+  food_items: z.array(foodItemSchema).min(1, 'At least one food item is required'),
+  notes: z.string().optional(),
+});
+
+// Complete meal data validation schema (includes system fields)
 export const mealLogSchema = z.object({
   user_id: z.string().min(1, 'User ID is required'),
-  meal_type: z.enum(['breakfast', 'lunch', 'dinner', 'snack', 'other'], { message: 'Please select a meal type' }),
-  meal_date: z.string().min(1, 'Meal date is required'),
-  meal_time: z.string().min(1, 'Meal time is required'),
-  food_items: z.array(foodItemSchema).min(1, 'At least one food item is required for a meal'),
+  meal_type: z.string().min(1, 'Meal type is required'),
+  meal_date: z.string().min(1, 'Date is required'),
+  meal_time: z.string().min(1, 'Time is required'),
+  food_items: z.array(foodItemSchema).min(1, 'At least one food item is required'),
   notes: z.string().optional(),
   created_at: z.string().min(1, 'Created at timestamp is required'),
+  total_calories: z.number().min(0),
+  total_protein: z.number().min(0),
+  total_carbs: z.number().min(0),
+  total_fat: z.number().min(0),
+  source: z.string().min(1, 'Source is required'),
 });
 
 // --- User Profile & Goal Setting Schemas ---

@@ -68,6 +68,11 @@ export type Database = {
           meal_time: string
           notes: string | null
           created_at: string
+          total_calories: number
+          total_protein: number
+          total_carbs: number
+          total_fat: number
+          source: string
         }
         Insert: Omit<Database['public']['Tables']['meal_logs']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['meal_logs']['Insert']>

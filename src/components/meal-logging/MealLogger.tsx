@@ -43,7 +43,7 @@ import { FaBarcode, FaSearch, FaTrash, FaPlus } from 'react-icons/fa';
 import FoodSearch, { SearchedFoodItem } from './FoodSearch';
 import BarcodeScanner, { ScannedFoodItem } from './BarcodeScanner';
 import QuickAdd, { QuickAddFoodInputs } from './QuickAdd';
-import { mealLogSchema } from '../../utils/validation';
+import { mealLogFormSchema } from '../../utils/validation';
 import { useMealLogging } from '../../hooks/useMealLogging';
 import { useErrorHandling } from '../../hooks/useErrorHandling';
 import { format } from 'date-fns';
@@ -85,7 +85,7 @@ const MealLogger: React.FC = () => {
     setValue,
     getValues,
   } = useForm<MealLogFormInputs>({
-    resolver: zodResolver(mealLogSchema),
+    resolver: zodResolver(mealLogFormSchema),
     defaultValues: {
       meal_type: 'lunch',
       meal_date: format(new Date(), 'yyyy-MM-dd'),
@@ -132,22 +132,30 @@ const MealLogger: React.FC = () => {
 
   const onSubmit = async (data: MealLogFormInputs) => {
     try {
+      console.log('MealLogger: Starting form submission');
+      console.log('MealLogger: Form data:', JSON.stringify(data, null, 2));
+
       if (!user?.id) {
+        console.error('MealLogger: No user ID found');
         throw new Error('User must be logged in to log meals');
       }
 
       // Validate food items
       if (!data.food_items || data.food_items.length === 0) {
+        console.error('MealLogger: No food items in form data');
         throw new Error('Please add at least one food item');
       }
 
       // Calculate total nutrition values
+      console.log('MealLogger: Calculating total nutrition values');
       const totalNutrition = data.food_items.reduce((acc, item) => ({
         calories: acc.calories + (item.calories * item.quantity),
         protein: acc.protein + (item.protein * item.quantity),
         carbs: acc.carbs + (item.carbs * item.quantity),
         fat: acc.fat + (item.fat * item.quantity)
       }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+      console.log('MealLogger: Calculated nutrition totals:', totalNutrition);
 
       const mealData = {
         user_id: user.id,
@@ -162,9 +170,7 @@ const MealLogger: React.FC = () => {
           fat: item.fat,
           quantity: item.quantity,
           unit: item.unit,
-          barcode: item.barcode,
-          regional_variant: 'general',
-          preparation: 'prepared'
+          barcode: item.barcode
         })),
         notes: data.notes,
         created_at: new Date().toISOString(),
@@ -175,9 +181,10 @@ const MealLogger: React.FC = () => {
         source: 'manual'
       };
 
-      console.log('Submitting meal data:', mealData);
+      console.log('MealLogger: Prepared meal data:', JSON.stringify(mealData, null, 2));
+      console.log('MealLogger: Calling submitMealLog');
       const response = await submitMealLog(mealData);
-      console.log('Meal log response:', response);
+      console.log('MealLogger: Meal log response:', response);
 
       // Show success message
       toast({
@@ -197,7 +204,7 @@ const MealLogger: React.FC = () => {
         notes: '',
       });
     } catch (error) {
-      console.error('Error submitting meal:', error);
+      console.error('MealLogger: Error submitting meal:', error);
       handleError(error);
       
       // Show error message
@@ -209,6 +216,15 @@ const MealLogger: React.FC = () => {
         isClosable: true,
       });
     }
+  };
+
+  // Add a click handler for the submit button
+  const handleSubmitClick = () => {
+    console.log('MealLogger: Submit button clicked');
+    console.log('MealLogger: Current form values:', getValues());
+    console.log('MealLogger: Form errors:', errors);
+    console.log('MealLogger: Is submitting:', isSubmitting);
+    console.log('MealLogger: Number of food items:', fields.length);
   };
 
   return (
@@ -391,6 +407,7 @@ const MealLogger: React.FC = () => {
               width="full"
               mt={4}
               isDisabled={fields.length === 0 || isSubmitting}
+              onClick={handleSubmitClick}
             >
               Log Meal
             </Button>
