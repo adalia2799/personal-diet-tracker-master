@@ -1,5 +1,5 @@
 // src/components/dashboard/ProgressTracker.tsx
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   Box,
   Heading,
@@ -9,251 +9,142 @@ import {
   SimpleGrid,
   Icon,
   Divider,
-  Spinner,
-  Center
+  Progress,
+  useColorModeValue
 } from '@chakra-ui/react';
 import { FaWeight, FaFire } from 'react-icons/fa';
-import { supabase } from '../../services/supabase';
-import { useAuth } from '../../hooks/useAuth';
 
-interface ProgressData {
-  current_weight?: number | null;
-  target_weight?: number | null;
-  target_calories?: number | null;
+interface ProgressTrackerProps {
+  profile?: {
+    weight_kg?: number;
+    target_weight?: number;
+    goal_type?: string;
+  };
+  goals?: {
+    target_calories?: number;
+    target_weight_kg?: number;
+  };
+  mealLogs?: Array<{
+    total_calories: number;
+    created_at: string;
+  }>;
 }
 
-const ProgressTracker: React.FC = () => {
-  const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [data, setData] = useState<ProgressData | null>(null);
+const ProgressTracker: React.FC<ProgressTrackerProps> = ({ 
+  profile,
+  goals,
+  mealLogs = []
+}) => {
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const textColor = useColorModeValue('gray.800', 'white');
+  const progressColor = useColorModeValue('teal.500', 'teal.300');
 
-  useEffect(() => {
-    const fetchProgressData = async () => {
-      if (!user?.id) return;
+  // Calculate current weight and target weight
+  const currentWeight = profile?.weight_kg || 0;
+  const targetWeight = goals?.target_weight_kg || profile?.target_weight || 0;
+  const goalType = profile?.goal_type || 'maintain';
 
-      try {
-        // Fetch user profile for current weight
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('weight_kg')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        // Fetch user goals
-        const { data: goalsData, error: goalsError } = await supabase
-          .from('user_goals')
-          .select('target_weight_kg, target_calories')
-          .eq('user_id', user.id)
-          .single();
-
-        if (goalsError) throw goalsError;
-
-        setData({
-          current_weight: profileData?.weight_kg,
-          target_weight: goalsData?.target_weight_kg,
-          target_calories: goalsData?.target_calories
-        });
-      } catch (error) {
-        console.error('Error fetching progress data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProgressData();
-
-    // Subscribe to real-time updates
-    const subscription = supabase
-      .channel('progress_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_profiles',
-          filter: `user_id=eq.${user?.id}`
-        },
-        () => {
-          fetchProgressData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_goals',
-          filter: `user_id=eq.${user?.id}`
-        },
-        () => {
-          fetchProgressData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [user?.id]);
-
-  if (isLoading) {
-    return (
-      <Box
-        p={8}
-        maxWidth="900px"
-        borderWidth={1}
-        borderRadius="lg"
-        boxShadow="lg"
-        bg="whiteAlpha.700"
-        borderColor="brand.200"
-        mx="auto"
-        my={8}
-      >
-        <Center h="200px">
-          <Spinner size="xl" color="accent.500" />
-        </Center>
-      </Box>
-    );
-  }
-
-  const currentWeight = data?.current_weight;
-  const targetWeight = data?.target_weight;
-  const targetCalories = data?.target_calories;
-
-  let weightProgress = 0;
-  if (currentWeight !== null && targetWeight !== null && currentWeight && targetWeight) {
-    if (currentWeight === targetWeight) {
-      weightProgress = 100;
-    } else if (currentWeight > targetWeight) {
-      weightProgress = ((currentWeight - targetWeight) / currentWeight) * 100;
-      if (weightProgress < 0) weightProgress = 0;
-      weightProgress = 100 - weightProgress;
-    } else {
-      weightProgress = (currentWeight / targetWeight) * 100;
+  // Calculate weight progress
+  const calculateWeightProgress = () => {
+    if (!currentWeight || !targetWeight) return 0;
+    if (goalType === 'lose_weight') {
+      const startWeight = Math.max(currentWeight, targetWeight);
+      const progress = ((startWeight - currentWeight) / (startWeight - targetWeight)) * 100;
+      return Math.min(Math.max(progress, 0), 100);
+    } else if (goalType === 'gain_weight') {
+      const startWeight = Math.min(currentWeight, targetWeight);
+      const progress = ((currentWeight - startWeight) / (targetWeight - startWeight)) * 100;
+      return Math.min(Math.max(progress, 0), 100);
     }
-    weightProgress = Math.min(100, Math.max(0, weightProgress));
-  }
+    return 0;
+  };
 
-  const calorieTargetProgress = targetCalories ? 50 : 0;
+  // Calculate calorie target progress
+  const calculateCalorieProgress = () => {
+    if (!mealLogs.length || !goals?.target_calories) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    const todayLogs = mealLogs.filter(log => 
+      new Date(log.created_at).toISOString().split('T')[0] === today
+    );
+    const totalCalories = todayLogs.reduce((sum, log) => sum + (log.total_calories || 0), 0);
+    const progress = (totalCalories / goals.target_calories) * 100;
+    return Math.min(Math.max(progress, 0), 100);
+  };
+
+  const weightProgress = calculateWeightProgress();
+  const calorieProgress = calculateCalorieProgress();
 
   return (
-    <Box
-      p={8}
-      maxWidth="900px"
-      borderWidth={1}
-      borderRadius="lg"
-      boxShadow="lg"
-      bg="whiteAlpha.700"
-      borderColor="brand.200"
-      mx="auto"
-      my={8}
-    >
-      <VStack gap={6} align="stretch">
-        <Heading as="h2" size="xl" textAlign="center" color="text.dark">
-          Your Progress
-        </Heading>
-        <Text fontSize="md" color="text.light" textAlign="center" mb={4}>
-          Monitor your journey towards your fitness goals.
-        </Text>
-
-        <Divider borderColor="brand.100" />
-
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-          <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-            <HStack mb={2}>
-              <Icon as={FaWeight} color="accent.500" w={6} h={6} />
-              <Text color="text.light" fontSize="lg" fontWeight="semibold">Weight Progress</Text>
-            </HStack>
-            <Box>
-              <Text fontSize="4xl" color="accent.600" fontWeight="bold">
-                {currentWeight !== null && currentWeight ? `${currentWeight} kg` : '--'}
-              </Text>
-              <Text color="text.light" fontSize="sm">
-                Target: {targetWeight !== null && targetWeight ? `${targetWeight} kg` : 'Not Set'}
-              </Text>
-            </Box>
-            {targetWeight !== null && currentWeight !== null && targetWeight && currentWeight && (
-              <Box
-                mt={3}
-                h="8px"
-                bg="gray.100"
-                borderRadius="md"
-                overflow="hidden"
-              >
-                <Box
-                  h="100%"
-                  bg={weightProgress === 100 ? 'green.500' : 'teal.500'}
-                  w={`${weightProgress}%`}
-                  transition="width 0.3s ease"
-                />
-              </Box>
-            )}
-            {!currentWeight && <Text color="text.light" fontSize="sm">Log your current weight in your profile.</Text>}
-            {!targetWeight && <Text color="text.light" fontSize="sm">Set a target weight in Goal Settings.</Text>}
-          </Box>
-
-          <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-            <HStack mb={2}>
-              <Icon as={FaFire} color="accent.500" w={6} h={6} />
-              <Text color="text.light" fontSize="lg" fontWeight="semibold">Calorie Target</Text>
-            </HStack>
-            <Box>
-              <Text fontSize="4xl" color="accent.600" fontWeight="bold">
-                {targetCalories !== null && targetCalories ? `${targetCalories} kcal` : '--'}
-              </Text>
-              <Text color="text.light" fontSize="sm">
-                Daily Goal
-              </Text>
-            </Box>
-            {targetCalories !== null && targetCalories && (
-              <Box
-                mt={3}
-                h="8px"
-                bg="gray.100"
-                borderRadius="md"
-                overflow="hidden"
-              >
-                <Box
-                  h="100%"
-                  bg={calorieTargetProgress >= 100 ? 'green.500' : 'teal.500'}
-                  w={`${Math.min(calorieTargetProgress, 100)}%`}
-                  transition="width 0.3s ease"
-                />
-              </Box>
-            )}
-            {!targetCalories && <Text color="text.light" fontSize="sm">Set a daily calorie target in Goal Settings.</Text>}
-          </Box>
-        </SimpleGrid>
-
-        <Divider borderColor="brand.100" />
-
-        <Box>
-          <Heading as="h3" size="md" mb={3} color="text.dark">
-            Overall Progress
-          </Heading>
-          <Text color="text.light">
-            Keep logging your meals and updating your profile to see more detailed progress insights here!
-          </Text>
-          <Box
-            mt={4}
-            h="6px"
-            bg="gray.100"
-            borderRadius="md"
-            overflow="hidden"
-          >
-            <Box
-              h="100%"
-              bg="teal.500"
-              w="50%"
-              transition="width 0.3s ease"
+    <VStack spacing={6} align="stretch">
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+        {/* Weight Progress */}
+        <Box p={4} bg={bgColor} borderRadius="md" boxShadow="sm">
+          <HStack spacing={3} mb={4}>
+            <Icon as={FaWeight} color={progressColor} />
+            <Text fontWeight="semibold" color={textColor}>Weight Progress</Text>
+          </HStack>
+          <VStack align="stretch" spacing={2}>
+            <Text color={textColor}>
+              Current: {currentWeight} kg
+            </Text>
+            <Text color={textColor}>
+              Target: {targetWeight} kg
+            </Text>
+            <Progress 
+              value={weightProgress} 
+              size="sm" 
+              colorScheme="teal" 
+              borderRadius="md"
             />
-          </Box>
-          <Text fontSize="sm" color="text.light" mt={1}>Overall progress is an average of all goals.</Text>
+            <Text fontSize="sm" color={textColor}>
+              {weightProgress.toFixed(1)}% towards your weight goal
+            </Text>
+          </VStack>
         </Box>
-      </VStack>
-    </Box>
+
+        {/* Calorie Progress */}
+        <Box p={4} bg={bgColor} borderRadius="md" boxShadow="sm">
+          <HStack spacing={3} mb={4}>
+            <Icon as={FaFire} color={progressColor} />
+            <Text fontWeight="semibold" color={textColor}>Today's Calories</Text>
+          </HStack>
+          <VStack align="stretch" spacing={2}>
+            <Text color={textColor}>
+              Target: {goals?.target_calories || 0} kcal
+            </Text>
+            <Progress 
+              value={calorieProgress} 
+              size="sm" 
+              colorScheme="teal" 
+              borderRadius="md"
+            />
+            <Text fontSize="sm" color={textColor}>
+              {calorieProgress.toFixed(1)}% of daily calorie goal
+            </Text>
+          </VStack>
+        </Box>
+      </SimpleGrid>
+
+      <Divider borderColor="gray.200" />
+
+      {/* Goal Summary */}
+      <Box>
+        <Text fontWeight="semibold" color={textColor} mb={2}>Goal Summary</Text>
+        <VStack align="stretch" spacing={2}>
+          <Text color={textColor}>
+            Goal Type: {goalType.split('_').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ')}
+          </Text>
+          <Text color={textColor}>
+            Daily Calorie Target: {goals?.target_calories || 0} kcal
+          </Text>
+          <Text color={textColor}>
+            Target Weight: {targetWeight} kg
+          </Text>
+        </VStack>
+      </Box>
+    </VStack>
   );
 };
 

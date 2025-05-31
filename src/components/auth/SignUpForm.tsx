@@ -23,12 +23,11 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   user_metadata: z.object({
-    first_name: z.string().min(2, 'First name must be at least 2 characters'),
-    last_name: z.string().min(2, 'Last name must be at least 2 characters'),
+    name: z.string().min(2, 'Name must be at least 2 characters'),
     phone_number: z.string()
       .min(10, 'Phone number must be at least 10 digits')
       .max(15, 'Phone number must not exceed 15 digits')
-      .regex(/^\d+$/, 'Phone number must contain only digits'),
+      .regex(/^\d+$/, 'Phone number must contain only digits')
   }),
   context: z.object({
     platform: z.string().default('web'),
@@ -70,8 +69,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToLogin }) =
         email: data.email,
         password: data.password,
         user_metadata: {
-          first_name: data.user_metadata.first_name,
-          last_name: data.user_metadata.last_name,
+          name: data.user_metadata.name,
           phone_number: data.user_metadata.phone_number
         },
         context: {
@@ -119,49 +117,26 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onSwitchToLogin }) =
 
         <Box as="form" onSubmit={handleSubmit(onSubmit)} width="100%">
           <VStack spacing={4}>
-            <div className="grid grid-cols-2 gap-4">
-              <FormControl isInvalid={!!errors.user_metadata?.first_name} flex={1}>
-                <FormLabel color="text.dark">First Name</FormLabel>
-                <Input
-                  type="text"
-                  {...register('user_metadata.first_name')}
-                  placeholder="Enter your first name"
-                  borderColor={errors.user_metadata?.first_name ? 'red.500' : 'brand.200'}
-                  _focus={{ 
-                    borderColor: errors.user_metadata?.first_name ? 'red.500' : 'brand.300', 
-                    boxShadow: errors.user_metadata?.first_name 
-                      ? '0 0 0 1px var(--chakra-colors-red-500)' 
-                      : '0 0 0 1px var(--chakra-colors-brand-300)' 
-                  }}
-                />
-                {errors.user_metadata?.first_name && (
-                  <FormErrorMessage mt={1}>
-                    <Text fontSize="sm" color="red.500">{errors.user_metadata.first_name.message}</Text>
-                  </FormErrorMessage>
-                )}
-              </FormControl>
-
-              <FormControl isInvalid={!!errors.user_metadata?.last_name} flex={1}>
-                <FormLabel color="text.dark">Last Name</FormLabel>
-                <Input
-                  type="text"
-                  {...register('user_metadata.last_name')}
-                  placeholder="Enter your last name"
-                  borderColor={errors.user_metadata?.last_name ? 'red.500' : 'brand.200'}
-                  _focus={{ 
-                    borderColor: errors.user_metadata?.last_name ? 'red.500' : 'brand.300', 
-                    boxShadow: errors.user_metadata?.last_name 
-                      ? '0 0 0 1px var(--chakra-colors-red-500)' 
-                      : '0 0 0 1px var(--chakra-colors-brand-300)' 
-                  }}
-                />
-                {errors.user_metadata?.last_name && (
-                  <FormErrorMessage mt={1}>
-                    <Text fontSize="sm" color="red.500">{errors.user_metadata.last_name.message}</Text>
-                  </FormErrorMessage>
-                )}
-              </FormControl>
-            </div>
+            <FormControl isInvalid={!!errors.user_metadata?.name}>
+              <FormLabel color="text.dark">Name</FormLabel>
+              <Input
+                type="text"
+                {...register('user_metadata.name')}
+                placeholder="Enter your name"
+                borderColor={errors.user_metadata?.name ? 'red.500' : 'brand.200'}
+                _focus={{ 
+                  borderColor: errors.user_metadata?.name ? 'red.500' : 'brand.300', 
+                  boxShadow: errors.user_metadata?.name 
+                    ? '0 0 0 1px var(--chakra-colors-red-500)' 
+                    : '0 0 0 1px var(--chakra-colors-brand-300)' 
+                }}
+              />
+              {errors.user_metadata?.name && (
+                <FormErrorMessage mt={1}>
+                  <Text fontSize="sm" color="red.500">{errors.user_metadata.name.message}</Text>
+                </FormErrorMessage>
+              )}
+            </FormControl>
 
             <FormControl isInvalid={!!errors.email}>
               <FormLabel color="text.dark">Email address</FormLabel>

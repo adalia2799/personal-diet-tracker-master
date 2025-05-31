@@ -10,7 +10,7 @@ import { triggerOnboarding } from '../services/n8nWebhooks';
 // Define signup schema since it's missing
 const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 interface AuthContextType {
@@ -18,7 +18,18 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signIn: (data: z.infer<typeof loginSchema>) => Promise<{ user: User | null; error: Error | null }>;
-  signUp: (data: { email: string; password: string }) => Promise<{ user: User | null; error: Error | null }>;
+  signUp: (data: { 
+    email: string; 
+    password: string;
+    user_metadata?: {
+      name: string;
+      phone_number: string;
+    };
+    context?: {
+      platform: string;
+      source: string;
+    };
+  }) => Promise<{ user: User | null; error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
   isAuthReady: boolean;
 }
@@ -103,35 +114,58 @@ const AuthProvider = ({ children }: AuthProviderProps): JSX.Element => {
     }
   };
 
-  const signUp = async (data: { email: string; password: string }) => {
+  const signUp = async (data: { 
+    email: string; 
+    password: string;
+    user_metadata?: {
+      name: string;
+      phone_number: string;
+    };
+    context?: {
+      platform: string;
+      source: string;
+    };
+  }) => {
     setIsLoading(true);
     try {
-      console.log('Attempting sign up with:', data.email);
-      
-      // First check if user exists
-      const { data: existingUser, error: checkError } = await supabase.auth.signInWithPassword({
+      console.log('Attempting sign up with:', {
         email: data.email,
-        password: data.password,
+        hasMetadata: !!data.user_metadata,
+        metadataKeys: data.user_metadata ? Object.keys(data.user_metadata) : [],
+        context: data.context
       });
-
-      if (existingUser?.user) {
-        throw new Error('An account with this email already exists. Please sign in instead.');
-      }
-
+      
+      const userMetadata = data.user_metadata ? {
+        ...data.user_metadata,
+        full_name: data.user_metadata.name
+      } : {};
+      
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: userMetadata
         }
       });
       
       if (error) {
-        console.error('Supabase sign up error:', error);
+        console.error('Supabase sign up error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         throw error;
       }
 
-      console.log('Sign up response:', authData);
+      console.log('Sign up response:', {
+        user: authData.user ? {
+          id: authData.user.id,
+          email: authData.user.email,
+          metadata: authData.user.user_metadata
+        } : null,
+        session: authData.session ? 'Session created' : 'No session'
+      });
 
       if (authData.user) {
         console.log('User created successfully:', authData.user.id);
@@ -141,7 +175,7 @@ const AuthProvider = ({ children }: AuthProviderProps): JSX.Element => {
           await triggerOnboarding({
             user_id: authData.user.id,
             created_at: new Date().toISOString(),
-            context: {
+            context: data.context || {
               platform: 'web',
               source: 'signup'
             }
@@ -154,8 +188,12 @@ const AuthProvider = ({ children }: AuthProviderProps): JSX.Element => {
       }
 
       return { user: authData.user, error: null };
-    } catch (error) {
-      console.error('Sign up error:', error);
+    } catch (error: any) {
+      console.error('Sign up error details:', {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
+      });
       handleError(error);
       return { user: null, error: error as Error };
     } finally {

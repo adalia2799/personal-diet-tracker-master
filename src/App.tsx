@@ -38,25 +38,18 @@ import Preferences from './components/profile/Preferences';
 import { supabase } from './services/supabase';
 import { useErrorHandling } from './hooks/useErrorHandling';
 
-type AppView =
-  | 'login'
-  | 'signup'
-  | 'onboarding'
-  | 'dashboard'
-  | 'log-meal'
-  | 'profile'
-  | 'goals'
-  | 'preferences';
+type AppView = 'login' | 'signup' | 'onboarding' | 'dashboard' | 'log-meal' | 'profile' | 'goals' | 'preferences';
 
 const AppCon: React.FC = () => {
   const { user, isLoading, isAuthReady, signOut } = useAuth();
   const { handleError } = useErrorHandling();
   const router = useRouter();
 
-  const [currentView, setCurrentView] = useState<AppView>('login');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isLoadingOnboardingStatus, setIsLoadingOnboardingStatus] = useState(true);
   const [userGoals, setUserGoals] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [mealLogs, setMealLogs] = useState<any[]>([]);
 
   // Fetch user goals when user changes
   useEffect(() => {
@@ -120,7 +113,7 @@ const AppCon: React.FC = () => {
         try {
           const { data, error } = await supabase
             .from('user_profiles')
-            .select('user_id')
+            .select('*')
             .eq('user_id', user.id)
             .single();
 
@@ -128,52 +121,67 @@ const AppCon: React.FC = () => {
 
           if (data) {
             setIsOnboardingComplete(true);
+            setUserProfile(data);
           } else {
-            setIsOnboardingComplete(false); // Allow fallback
+            setIsOnboardingComplete(false);
+            // Redirect to onboarding if profile is incomplete
+            if (router.pathname !== '/onboarding') {
+              router.push('/onboarding');
+            }
           }
-
-          setCurrentView('dashboard'); // Always go to dashboard
         } catch (err) {
           handleError(err, 'Failed to check onboarding status');
-          setCurrentView('login');
+          router.push('/login');
         } finally {
           setIsLoadingOnboardingStatus(false);
         }
       } else {
-        setCurrentView('login');
+        router.push('/login');
         setIsLoadingOnboardingStatus(false);
       }
     };
 
     checkOnboardingStatus();
-  }, [user, isLoading, isAuthReady, handleError]);
+  }, [user, isLoading, isAuthReady, handleError, router]);
+
+  useEffect(() => {
+    const fetchMealLogs = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('meal_logs')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching meal logs:', error);
+          return;
+        }
+
+        if (data) {
+          setMealLogs(data);
+        }
+      } catch (err) {
+        console.error('Error in fetchMealLogs:', err);
+      }
+    };
+
+    fetchMealLogs();
+  }, [user?.id]);
 
   const handleLoginSuccess = () => {
-    setIsLoadingOnboardingStatus(true); // Triggers re-check
+    setIsLoadingOnboardingStatus(true);
   };
 
   const handleSignUpSuccess = () => {
-    setCurrentView('onboarding');
+    router.push('/onboarding');
   };
 
   const handleOnboardingComplete = () => {
     setIsOnboardingComplete(true);
-    setCurrentView('dashboard');
+    router.push('/dashboard');
   };
-
-  const handleNavigate = (view: string) => {
-    // Store current view in localStorage before switching
-    localStorage.setItem('lastView', currentView);
-    router.push(`/${view}`);
-  };
-
-  // Restore last view on component mount
-  useEffect(() => {
-    const lastView = localStorage.getItem('lastView') as AppView;
-    if (lastView && lastView !== 'login' && lastView !== 'signup') {
-      setCurrentView(lastView);
-    }
-  }, []);
 
   const renderContent = () => {
     if (isLoading || isLoadingOnboardingStatus) {
@@ -184,17 +192,17 @@ const AppCon: React.FC = () => {
       return (
         <LoginForm
           onSuccess={handleLoginSuccess}
-          onSwitchToSignUp={() => setCurrentView(currentView === 'signup' ? 'login' : 'signup')}
+          onSwitchToSignUp={() => router.push('/signup')}
         />
       );
     }
 
-    if (!isOnboardingComplete && currentView === 'onboarding') {
+    if (!isOnboardingComplete && router.pathname === '/onboarding') {
       return <OnboardingFlow onOnboardingComplete={handleOnboardingComplete} />;
     }
 
-    switch (currentView) {
-      case 'dashboard':
+    switch (router.pathname) {
+      case '/dashboard':
         return (
           <VStack spacing={8} align="stretch" maxW="1200px" mx="auto" px={4}>
             {!isOnboardingComplete && (
@@ -209,7 +217,7 @@ const AppCon: React.FC = () => {
                   Please{' '}
                   <ChakraLink
                     color="blue.600"
-                    onClick={() => setCurrentView('onboarding')}
+                    onClick={() => router.push('/onboarding')}
                     cursor="pointer"
                   >
                     complete your profile
@@ -219,52 +227,22 @@ const AppCon: React.FC = () => {
               </Box>
             )}
 
-            <DailyOverview
-              onNavigate={handleNavigate}
-            />
-            
-            <NutritionChart onNavigate={handleNavigate} />
+            <DailyOverview onNavigate={(view) => router.push(`/${view}`)} />
+            <NutritionChart onNavigate={(view) => router.push(`/${view}`)} />
             <ProgressTracker />
-
-            <Box
-              p={6}
-              borderRadius="lg"
-              bg="whiteAlpha.700"
-              boxShadow="lg"
-              borderColor="brand.200"
-              borderWidth={1}
-            >
-              <Text fontSize="lg" fontWeight="bold" mb={4}>
-                Recommendations
-              </Text>
-              {isOnboardingComplete ? (
-                <RecommendationCard
-                  recommendation={{
-                    id: 'rec1',
-                    userId: user.id,
-                    type: 'nutrition',
-                    title: 'Increase Fiber Intake',
-                    content:
-                      'Aim for more whole grains, fruits, and vegetables to boost your fiber intake.',
-                    createdAt: new Date().toISOString()
-                  }}
-                />
-              ) : (
-                <Text color="gray.500">Complete your profile to get personalized recommendations.</Text>
-              )}
-            </Box>
+            <RecommendationCard onNavigate={(view) => router.push(`/${view}`)} />
           </VStack>
         );
-      case 'log-meal':
-        return <MealLogger />;
-      case 'profile':
-        return <UserProfile onViewChange={setCurrentView} />;
-      case 'goals':
-        return <GoalSetting onViewChange={setCurrentView} />;
-      case 'preferences':
+      case '/profile':
+        return <UserProfile />;
+      case '/goals':
+        return <GoalSetting />;
+      case '/preferences':
         return <Preferences />;
+      case '/log-meal':
+        return <MealLogger />;
       default:
-        return <Text>Page not found.</Text>;
+        return <LoadingSpinner message="Loading..." />;
     }
   };
 
@@ -277,19 +255,19 @@ const AppCon: React.FC = () => {
               Fitness Tracker
             </Text>
             <HStack spacing={6}>
-              <ChakraLink onClick={() => handleNavigate('dashboard')} color="whiteAlpha.800">
+              <ChakraLink onClick={() => router.push('/dashboard')} color="whiteAlpha.800">
                 Dashboard
               </ChakraLink>
-              <ChakraLink onClick={() => handleNavigate('log-meal')} color="whiteAlpha.800">
+              <ChakraLink onClick={() => router.push('/log-meal')} color="whiteAlpha.800">
                 Log Meal
               </ChakraLink>
-              <ChakraLink onClick={() => handleNavigate('profile')} color="whiteAlpha.800">
+              <ChakraLink onClick={() => router.push('/profile')} color="whiteAlpha.800">
                 Profile
               </ChakraLink>
-              <ChakraLink onClick={() => handleNavigate('goals')} color="whiteAlpha.800">
+              <ChakraLink onClick={() => router.push('/goals')} color="whiteAlpha.800">
                 Goals
               </ChakraLink>
-              <ChakraLink onClick={() => handleNavigate('preferences')} color="whiteAlpha.800">
+              <ChakraLink onClick={() => router.push('/preferences')} color="whiteAlpha.800">
                 Preferences
               </ChakraLink>
             </HStack>

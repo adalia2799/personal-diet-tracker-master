@@ -14,6 +14,7 @@ import {
   Textarea,
   Button,
   useColorModeValue,
+  Icon
 } from '@chakra-ui/react';
 import { format } from 'date-fns';
 import { z } from 'zod';
@@ -22,7 +23,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { FiSend, FiX } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { processChatMessage as processN8nMessage } from '../../services/n8nWebhooks';
-import { FaUtensils } from 'react-icons/fa';
+import { FaUtensils, FaFire, FaDrumstickBite, FaAppleAlt, FaFish } from 'react-icons/fa';
+
+type AppView = 'login' | 'signup' | 'onboarding' | 'dashboard' | 'log-meal' | 'profile' | 'goals' | 'preferences';
 
 interface DailyData {
   calories?: number;
@@ -37,12 +40,21 @@ interface UserGoals {
   target_carbs_ratio?: number;
   target_fat_ratio?: number;
   target_weight_kg?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface DailyOverviewProps {
   data?: DailyData | null;
   goals?: UserGoals | null;
-  onNavigate: (view: string) => void;
+  onNavigate: (view: AppView) => void;
+  mealLogs?: Array<{
+    total_calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    created_at: string;
+  }>;
 }
 
 interface ChatMessageData {
@@ -96,7 +108,7 @@ const WavingBot = () => (
   </motion.div>
 );
 
-const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals, onNavigate }) => {
+const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals, onNavigate, mealLogs = [] }) => {
   const { user } = useAuth();
   const [chatMessages, setChatMessages] = useState<ChatMessageData[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -107,6 +119,7 @@ const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.800', 'white');
+  const iconColor = useColorModeValue('teal.500', 'teal.300');
 
   useEffect(() => {
     const fetchLatestGoals = async () => {
@@ -394,6 +407,62 @@ const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals
   const carbsProgress = getMacroProgress(data.carbs || 0, goals?.target_carbs_ratio, currentCalories);
   const fatProgress = getMacroProgress(data.fat || 0, goals?.target_fat_ratio, currentCalories);
 
+  // Calculate today's totals
+  const today = new Date().toISOString().split('T')[0];
+  const todayLogs = mealLogs.filter(log => 
+    new Date(log.created_at).toISOString().split('T')[0] === today
+  );
+
+  const totals = todayLogs.reduce((acc, log) => ({
+    calories: acc.calories + (log.total_calories || 0),
+    protein: acc.protein + (log.protein || 0),
+    carbs: acc.carbs + (log.carbs || 0),
+    fat: acc.fat + (log.fat || 0)
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  // Calculate percentages
+  const percentages = {
+    calories: goals?.target_calories ? (totals.calories / goals.target_calories) * 100 : 0,
+    protein: goals?.target_protein_ratio ? (totals.protein / (goals.target_protein_ratio * totals.calories / 400)) * 100 : 0,
+    carbs: goals?.target_carbs_ratio ? (totals.carbs / (goals.target_carbs_ratio * totals.calories / 400)) * 100 : 0,
+    fat: goals?.target_fat_ratio ? (totals.fat / (goals.target_fat_ratio * totals.calories / 900)) * 100 : 0
+  };
+
+  const metrics = [
+    {
+      label: 'Calories',
+      value: totals.calories,
+      target: goals?.target_calories,
+      unit: 'kcal',
+      icon: FaFire,
+      percentage: percentages.calories
+    },
+    {
+      label: 'Protein',
+      value: totals.protein,
+      target: goals?.target_protein_ratio ? (goals.target_protein_ratio * totals.calories / 400) : 0,
+      unit: 'g',
+      icon: FaDrumstickBite,
+      percentage: percentages.protein
+    },
+    {
+      label: 'Carbs',
+      value: totals.carbs,
+      target: goals?.target_carbs_ratio ? (goals.target_carbs_ratio * totals.calories / 400) : 0,
+      unit: 'g',
+      icon: FaAppleAlt,
+      percentage: percentages.carbs
+    },
+    {
+      label: 'Fat',
+      value: totals.fat,
+      target: goals?.target_fat_ratio ? (goals.target_fat_ratio * totals.calories / 900) : 0,
+      unit: 'g',
+      icon: FaFish,
+      percentage: percentages.fat
+    }
+  ];
+
   return (
     <>
       <Box
@@ -431,34 +500,34 @@ const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals
             </Button>
           </HStack>
 
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={6}>
-            <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-              <Text color="text.light" fontSize="sm" fontWeight="medium">Calories Consumed</Text>
-              <Text fontSize="3xl" color="accent.600" fontWeight="bold">{currentCalories} kcal</Text>
-              <Text color="text.light" fontSize="sm">Target: {targetCalories} kcal</Text>
-              <Progress value={caloriesProgress} size="sm" colorScheme={caloriesProgress > 100 ? 'red' : 'teal'} mt={2} borderRadius="md" />
-            </Box>
-
-            <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-              <Text color="text.light" fontSize="sm" fontWeight="medium">Protein</Text>
-              <Text fontSize="3xl" color="accent.600" fontWeight="bold">{data.protein || 0} g</Text>
-              <Text color="text.light" fontSize="sm">Target: {goals?.target_protein_ratio || '--'}%</Text>
-              <Progress value={proteinProgress} size="sm" colorScheme={proteinProgress > 100 ? 'orange' : 'teal'} mt={2} borderRadius="md" />
-            </Box>
-
-            <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-              <Text color="text.light" fontSize="sm" fontWeight="medium">Carbohydrates</Text>
-              <Text fontSize="3xl" color="accent.600" fontWeight="bold">{data.carbs || 0} g</Text>
-              <Text color="text.light" fontSize="sm">Target: {goals?.target_carbs_ratio || '--'}%</Text>
-              <Progress value={carbsProgress} size="sm" colorScheme={carbsProgress > 100 ? 'orange' : 'teal'} mt={2} borderRadius="md" />
-            </Box>
-
-            <Box p={4} bg="brand.100" borderRadius="md" boxShadow="sm">
-              <Text color="text.light" fontSize="sm" fontWeight="medium">Fats</Text>
-              <Text fontSize="3xl" color="accent.600" fontWeight="bold">{data.fat || 0} g</Text>
-              <Text color="text.light" fontSize="sm">Target: {goals?.target_fat_ratio || '--'}%</Text>
-              <Progress value={fatProgress} size="sm" colorScheme={fatProgress > 100 ? 'orange' : 'teal'} mt={2} borderRadius="md" />
-            </Box>
+          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+            {metrics.map((metric) => (
+              <Box
+                key={metric.label}
+                p={4}
+                bg={bgColor}
+                borderRadius="md"
+                boxShadow="sm"
+              >
+                <HStack spacing={3} mb={2}>
+                  <Icon as={metric.icon} color={iconColor} />
+                  <Text fontWeight="semibold" color={textColor}>{metric.label}</Text>
+                </HStack>
+                <VStack align="start" spacing={1}>
+                  <Text fontSize="xl" fontWeight="bold" color={textColor}>
+                    {metric.value.toFixed(0)} {metric.unit}
+                  </Text>
+                  {metric.target && (
+                    <Text fontSize="sm" color={textColor}>
+                      Target: {metric.target.toFixed(0)} {metric.unit}
+                    </Text>
+                  )}
+                  <Text fontSize="sm" color={textColor}>
+                    {metric.percentage.toFixed(1)}% of daily goal
+                  </Text>
+                </VStack>
+              </Box>
+            ))}
           </SimpleGrid>
 
           <Divider borderColor="brand.100" />
@@ -479,9 +548,9 @@ const DailyOverview: React.FC<DailyOverviewProps> = ({ data, goals: initialGoals
                 </Text>
                 <Text>
                   <Text as="span" fontWeight="semibold">Macro Ratios:</Text>{' '}
-                  {goals.target_protein_ratio || '--'}% Protein,{' '}
-                  {goals.target_carbs_ratio || '--'}% Carbs,{' '}
-                  {goals.target_fat_ratio || '--'}% Fat
+                  {goals.target_protein_ratio ? `${(goals.target_protein_ratio * 100).toFixed(1)}% Protein` : '--'}
+                  {goals.target_carbs_ratio ? `, ${(goals.target_carbs_ratio * 100).toFixed(1)}% Carbs` : ''}
+                  {goals.target_fat_ratio ? `, ${(goals.target_fat_ratio * 100).toFixed(1)}% Fat` : ''}
                 </Text>
               </VStack>
             ) : (

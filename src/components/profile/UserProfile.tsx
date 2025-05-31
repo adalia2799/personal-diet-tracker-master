@@ -174,6 +174,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
 
           // Check for missing required fields
           const missingFields = [];
+          if (!data.full_name) missingFields.push('Full Name');
+          if (!data.age) missingFields.push('Age');
+          if (!data.gender) missingFields.push('Gender');
+          if (!data.height_cm) missingFields.push('Height');
+          if (!data.weight_kg) missingFields.push('Weight');
+          if (!data.activity_level) missingFields.push('Activity Level');
           if (!data.profession) missingFields.push('Profession');
           if (data.work_hours === null || data.work_hours === undefined) missingFields.push('Work Hours');
           if (!data.dietary_restrictions) missingFields.push('Dietary Restrictions');
@@ -182,32 +188,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
           if (!data.fitness_level) missingFields.push('Fitness Level');
 
           if (missingFields.length > 0) {
-            toast({
-              title: 'Missing Information',
-              description: `Please complete your profile by providing: ${missingFields.join(', ')}`,
-              status: 'warning',
-              duration: 5000,
-              isClosable: true,
-            });
+            setError('incomplete_profile');
           }
         }
       } catch (err) {
         console.error('Error in fetchUserProfile:', err);
         setError('Failed to load profile data. Please try again.');
-        toast({
-          title: 'Error',
-          description: 'Failed to load profile data. Please try again.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
     fetchUserProfile();
-  }, [user?.id, reset, toast]);
+  }, [user?.id, reset]);
 
   const calculateAverageHours = (workHours: any) => {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -301,38 +294,85 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
     return <LoadingSpinner message="Loading your profile..." />;
   }
 
+  if (error === 'incomplete_profile') {
+    return (
+      <Box p={8}>
+        <VStack spacing={8} align="stretch">
+          <Box
+            p={8}
+            bg="white"
+            borderRadius="lg"
+            boxShadow="lg"
+            borderWidth={1}
+            borderColor="brand.200"
+          >
+            <VStack spacing={6} align="stretch">
+              <Heading size="xl" textAlign="center" color="brand.500">
+                Complete Your Profile
+              </Heading>
+              <Text fontSize="lg" color="gray.600" textAlign="center">
+                To get the most out of your diet tracker, please complete your profile setup.
+              </Text>
+              
+              <Box bg="brand.50" p={6} borderRadius="md">
+                <VStack spacing={4} align="stretch">
+                  <Heading size="md" color="brand.700">
+                    Required Information
+                  </Heading>
+                  <Text color="gray.600">
+                    Please provide the following information to get started:
+                  </Text>
+                  <VStack align="start" spacing={2} pl={4}>
+                    <Text>• Basic Information (Name, Age, Gender)</Text>
+                    <Text>• Physical Measurements (Height, Weight)</Text>
+                    <Text>• Activity Level and Profession</Text>
+                    <Text>• Health Information (Allergies, Medical Conditions)</Text>
+                    <Text>• Fitness Goals and Preferences</Text>
+                  </VStack>
+                </VStack>
+              </Box>
+
+              <VStack spacing={4} pt={4}>
+                <Button
+                  colorScheme="brand"
+                  size="lg"
+                  width="full"
+                  onClick={() => router.push('/onboarding')}
+                >
+                  Complete Onboarding
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  width="full"
+                  onClick={() => router.push('/dashboard')}
+                >
+                  Back to Dashboard
+                </Button>
+              </VStack>
+            </VStack>
+          </Box>
+        </VStack>
+      </Box>
+    );
+  }
+
   if (error) {
     return (
-      <Box p={8} maxWidth="600px" mx="auto">
-        <Box
-          p={6}
-          borderRadius="lg"
-          bg="whiteAlpha.700"
-          boxShadow="lg"
-          borderColor="brand.200"
-          borderWidth={1}
-          mb={8}
-        >
-          <VStack spacing={4}>
-            <Text fontSize="xl" fontWeight="bold" color="text.dark">
-              Complete Your Profile
-            </Text>
-            <Text color="text.light" textAlign="center">
-              Please complete your profile to get personalized recommendations.
-            </Text>
-            <Button
-              onClick={() => onViewChange ? onViewChange('onboarding') : router.push('/dashboard')}
-              colorScheme="teal"
-              variant="solid"
-              bg="accent.500"
-              color="white"
-              _hover={{ bg: 'accent.600' }}
-              size="lg"
-            >
-              Complete Profile
-            </Button>
-          </VStack>
-        </Box>
+      <Box p={8}>
+        <VStack spacing={6} textAlign="center">
+          <Heading size="xl" color="red.500">Error</Heading>
+          <Text fontSize="lg" color="gray.600">
+            {error}
+          </Text>
+          <Button
+            colorScheme="brand"
+            size="lg"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
+        </VStack>
       </Box>
     );
   }
