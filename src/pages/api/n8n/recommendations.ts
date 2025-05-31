@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Ensure the n8n webhook URL is configured
-  const n8nWebhookUrl = process.env.N8N_RECOMMENDATIONS_WEBHOOK_URL || 'http://localhost:5678/webhook/recommendations';
+  const n8nWebhookUrl = process.env.N8N_RECOMMENDATIONS_WEBHOOK_URL;
   if (!n8nWebhookUrl) {
     console.error('N8N_RECOMMENDATIONS_WEBHOOK_URL is not set in environment variables!');
     return res.status(500).json({ error: 'Server configuration error: n8n webhook URL missing.' });

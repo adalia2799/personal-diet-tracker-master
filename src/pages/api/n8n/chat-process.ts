@@ -40,8 +40,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Continue without profile data
     }
 
-    // TODO: Replace with actual n8n webhook URL
-    const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL || 'http://localhost:5678/webhook/chat-process';
+    // Get n8n webhook URL from environment variable
+    const n8nWebhookUrl = process.env.N8N_CHAT_WEBHOOK_URL;
+    
+    if (!n8nWebhookUrl) {
+      console.error('N8N_CHAT_WEBHOOK_URL is not configured');
+      return res.status(500).json({ 
+        error: 'Chat service configuration error',
+        message: 'Chat service is not properly configured. Please try again later.'
+      });
+    }
+
+    console.log('Sending request to n8n webhook:', n8nWebhookUrl);
 
     // Send request to n8n
     const n8nResponse = await fetch(n8nWebhookUrl, {
@@ -63,10 +73,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!n8nResponse.ok) {
       const errorData = await n8nResponse.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('n8n webhook error:', {
+        status: n8nResponse.status,
+        statusText: n8nResponse.statusText,
+        error: errorData
+      });
       throw new Error(errorData.message || `n8n webhook failed: ${n8nResponse.statusText}`);
     }
 
-    const botResponse = await n8nResponse.json();
+    // Try to parse the response as JSON, with a fallback for empty responses
+    let botResponse;
+    try {
+      const responseText = await n8nResponse.text();
+      botResponse = responseText ? JSON.parse(responseText) : { message: 'I received your message but could not process it at this time.' };
+    } catch (parseError) {
+      console.error('Error parsing n8n response:', parseError);
+      botResponse = { message: 'I received your message but encountered an error processing it.' };
+    }
+
+    // Ensure we have a valid response message
+    if (!botResponse.message && !botResponse.response) {
+      botResponse.message = 'I received your message but could not generate a proper response.';
+    }
     
     // Save bot response to database
     const { error: saveError } = await supabase
@@ -94,6 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(500).json({ 
       error: 'Internal server error',
+      message: 'Failed to process your message. Please try again later.',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

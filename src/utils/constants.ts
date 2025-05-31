@@ -10,7 +10,6 @@ export const SUPABASE_ANON_KEY: string = process.env.NEXT_PUBLIC_SUPABASE_ANON_K
 
 // n8n Base URL (publicly exposed if needed for client-side reference, though direct webhook calls go via API routes)
 // For local development, this will be http://localhost:5678
-export const N8N_BASE_URL: string = process.env.NEXT_PUBLIC_N8N_BASE_URL || 'http://localhost:5678';
 
 // Server-side environment variables (NOT exposed client-side)
 // These should be configured in your deployment environment (e.g., .env.local, Vercel environment variables)
@@ -30,10 +29,10 @@ export const N8N_API_ROUTES = {
 // Example: process.env.N8N_ONBOARDING_WEBHOOK_URL
 // These are used within the Next.js API routes, NOT directly in client-side components.
 export const N8N_WEBHOOK_URLS = {
-  ONBOARDING: process.env.N8N_ONBOARDING_WEBHOOK_URL ||'https://localhost:5678/webhook/onboard',
-  MEAL_LOG: process.env.N8N_MEAL_LOG_WEBHOOK_URL|| 'http://localhost:5678/webhook/log-meal',
-  RECOMMENDATIONS: process.env.N8N_RECOMMENDATIONS_WEBHOOK_URL || 'http://localhost:5678/webhook/recommendations',
-  CHAT_INTERACTIONS: process.env.N8N_CHAT_INTERACTIONS_WEBHOOK_URL || 'http://localhost:5678/webhook/chat-interactions',
+  ONBOARDING: process.env.N8N_ONBOARDING_WEBHOOK_URL,
+  MEAL_LOG: process.env.N8N_MEAL_LOG_WEBHOOK_URL,
+  RECOMMENDATIONS: process.env.N8N_RECOMMENDATIONS_WEBHOOK_URL,
+  CHAT_INTERACTIONS: process.env.N8N_CHAT_INTERACTIONS_WEBHOOK_URL,
 } as const;
 
 // Other application-wide constants
