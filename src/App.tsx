@@ -248,7 +248,7 @@ const AppCon: React.FC = () => {
       case 'log-meal':
         return <MealLogger />;
       case 'profile':
-        return <UserProfile />;
+        return <UserProfile onViewChange={setCurrentView} />;
       case 'goals':
         return <GoalSetting onViewChange={setCurrentView} />;
       case 'preferences':

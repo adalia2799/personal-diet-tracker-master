@@ -280,15 +280,21 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
       console.log('Profile saved successfully');
 
       // Trigger onboarding workflow
-      console.log('Triggering onboarding workflow...');
-      await triggerOnboarding({
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-        context: {
-          platform: 'web',
-          source: 'onboarding-flow'
-        }
-      });
+      try {
+        await triggerOnboarding({
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          context: {
+            platform: 'web',
+            source: 'onboarding-flow'
+          }
+        });
+        console.log('Onboarding workflow triggered');
+      } catch (onboardingError) {
+        console.error('Failed to trigger onboarding workflow:', onboardingError);
+        // Don't fail the onboarding if the n8n webhook fails
+        // The profile is already saved in Supabase
+      }
 
       // Clear localStorage after successful submission
       localStorage.removeItem('onboardingFormData');

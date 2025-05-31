@@ -30,6 +30,7 @@ import {
   HStack,
   Checkbox,
   CheckboxGroup,
+  VStack,
 } from '@chakra-ui/react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
@@ -89,7 +90,13 @@ type UserProfileInputs = z.infer<typeof userProfileSchema>;
 // Add type for work days
 type WorkDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
-const UserProfile: React.FC = () => {
+type AppView = 'login' | 'signup' | 'onboarding' | 'dashboard' | 'log-meal' | 'profile' | 'goals' | 'preferences';
+
+interface UserProfileProps {
+  onViewChange?: (view: AppView) => void;
+}
+
+const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
   const { user } = useAuth();
   const theme = useTheme();
   const toast = useToast();
@@ -313,10 +320,35 @@ const UserProfile: React.FC = () => {
   if (error) {
     return (
       <Box p={8} maxWidth="600px" mx="auto">
-        <Alert status="error" borderRadius="md">
-          <AlertIcon />
-          {error}
-        </Alert>
+        <Box
+          p={6}
+          borderRadius="lg"
+          bg="whiteAlpha.700"
+          boxShadow="lg"
+          borderColor="brand.200"
+          borderWidth={1}
+          mb={8}
+        >
+          <VStack spacing={4}>
+            <Text fontSize="xl" fontWeight="bold" color="text.dark">
+              Complete Your Profile
+            </Text>
+            <Text color="text.light" textAlign="center">
+              Please complete your profile to get personalized recommendations.
+            </Text>
+            <Button
+              onClick={() => onViewChange ? onViewChange('onboarding') : router.push('/dashboard')}
+              colorScheme="teal"
+              variant="solid"
+              bg="accent.500"
+              color="white"
+              _hover={{ bg: 'accent.600' }}
+              size="lg"
+            >
+              Complete Profile
+            </Button>
+          </VStack>
+        </Box>
       </Box>
     );
   }

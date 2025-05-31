@@ -25,7 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const n8nWebhookUrl = process.env.N8N_ONBOARDING_WEBHOOK_URL;
     if (!n8nWebhookUrl) {
       console.error('N8N_ONBOARDING_WEBHOOK_URL is not set in environment variables!');
-      return res.status(500).json({ error: 'Server configuration error: n8n webhook URL missing.' });
+      // Instead of returning an error, we'll return a success response since the profile is already saved
+      return res.status(200).json({ 
+        message: 'Profile saved successfully. Onboarding workflow skipped.',
+        details: 'n8n webhook URL not configured'
+      });
     }
 
     const response = await fetch(n8nWebhookUrl, {
