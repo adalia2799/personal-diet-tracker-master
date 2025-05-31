@@ -201,7 +201,7 @@ const Dashboard: React.FC = () => {
     
     try {
       // Fetch today's meals using meal_date
-      const today = '2025-05-31'; // hardcoded for your test data
+      const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
       const { data: meals, error: mealsError } = await supabase
         .from('meal_logs')
         .select('*')
