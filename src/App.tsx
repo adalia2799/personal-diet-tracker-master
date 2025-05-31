@@ -6,7 +6,7 @@
 
 // src/App.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import {
   ChakraProvider,
   Box,
@@ -41,7 +41,11 @@ import { useErrorHandling } from './hooks/useErrorHandling';
 
 type AppView = 'login' | 'signup' | 'onboarding' | 'dashboard' | 'log-meal' | 'profile' | 'goals' | 'preferences';
 
-const AppCon: React.FC = () => {
+interface AppConProps {
+  children?: ReactNode;
+}
+
+export const AppCon: React.FC<AppConProps> = ({ children }) => {
   const { user, isLoading, isAuthReady, signOut } = useAuth();
   const { handleError } = useErrorHandling();
   const router = useRouter();
@@ -264,7 +268,7 @@ const AppCon: React.FC = () => {
       )}
 
       <Box flex="1" p={8} bg="brand.50">
-        {renderContent()}
+        {children || renderContent()}
       </Box>
 
       <Box bg="brand.900" py={4} px={8} textAlign="center" color="whiteAlpha.600" fontSize="sm">
@@ -274,15 +278,19 @@ const AppCon: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
-  <ErrorBoundary>
-    <ChakraProvider theme={theme}>
-      <AuthProvider>
-        <AppCon />
-      </AuthProvider>
-    </ChakraProvider>
-  </ErrorBoundary>
-);
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <ChakraProvider theme={theme}>
+        <AuthProvider>
+          <AppCon>
+            <Dashboard />
+          </AppCon>
+        </AuthProvider>
+      </ChakraProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
 
