@@ -68,7 +68,7 @@ const Preferences: React.FC = () => {
       setIsLoadingPreferences(true);
       try {
         const { data, error } = await supabase
-          .from('user_preferences') // Assuming a 'user_preferences' table
+          .from('user_preferences')
           .select('*')
           .eq('user_id', user.id)
           .single();
@@ -77,11 +77,11 @@ const Preferences: React.FC = () => {
           throw error;
         }
 
-        if (data) {
+        if (data?.preferences) {
           reset({
-            receiveNotifications: data.receiveNotifications || false,
-            notificationFrequency: data.notificationFrequency || 'daily',
-            themePreference: data.themePreference || 'system',
+            receiveNotifications: data.preferences.receiveNotifications || false,
+            notificationFrequency: data.preferences.notificationFrequency || 'daily',
+            themePreference: data.preferences.themePreference || 'system',
           });
         }
       } catch (err) {
@@ -141,7 +141,14 @@ const Preferences: React.FC = () => {
     try {
       const { error } = await supabase
         .from('user_preferences')
-        .upsert({ user_id: user.id, ...data }, { onConflict: 'user_id' });
+        .upsert({
+          user_id: user.id,
+          preferences: {
+            receiveNotifications: data.receiveNotifications,
+            notificationFrequency: data.notificationFrequency,
+            themePreference: data.themePreference
+          }
+        }, { onConflict: 'user_id' });
 
       if (error) throw error;
 
