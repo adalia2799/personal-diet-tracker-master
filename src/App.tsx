@@ -34,6 +34,7 @@ import RecommendationCard from './components/dashboard/RecommendationCard';
 import UserProfile from './components/profile/UserProfile';
 import GoalSetting from './components/profile/GoalSetting';
 import Preferences from './components/profile/Preferences';
+import Dashboard from './components/dashboard/Dashboard';
 
 import { supabase } from './services/supabase';
 import { useErrorHandling } from './hooks/useErrorHandling';
@@ -203,36 +204,7 @@ const AppCon: React.FC = () => {
 
     switch (router.pathname) {
       case '/dashboard':
-        return (
-          <VStack spacing={8} align="stretch" maxW="1200px" mx="auto" px={4}>
-            {!isOnboardingComplete && (
-              <Box
-                p={4}
-                bg="yellow.100"
-                borderRadius="md"
-                border="1px solid"
-                borderColor="yellow.400"
-              >
-                <Text fontWeight="semibold">
-                  Please{' '}
-                  <ChakraLink
-                    color="blue.600"
-                    onClick={() => router.push('/onboarding')}
-                    cursor="pointer"
-                  >
-                    complete your profile
-                  </ChakraLink>{' '}
-                  to get personalized recommendations.
-                </Text>
-              </Box>
-            )}
-
-            <DailyOverview onNavigate={(view) => router.push(`/${view}`)} />
-            <NutritionChart onNavigate={(view) => router.push(`/${view}`)} />
-            <ProgressTracker />
-            <RecommendationCard onNavigate={(view) => router.push(`/${view}`)} />
-          </VStack>
-        );
+        return <Dashboard />;
       case '/profile':
         return <UserProfile />;
       case '/goals':
