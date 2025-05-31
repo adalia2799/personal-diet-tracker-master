@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Box, Spinner, Center } from '@chakra-ui/react';
-import AppCon from '../App';
+import { Box, Spinner } from '@chakra-ui/react';
 import { useAuth } from '../hooks/useAuth';
+import AppCon from '../App';
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { user, isLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -16,14 +16,14 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center">
-        <Spinner size="xl" color="accent.500" />
+      <Box display="flex" justifyContent="center" alignItems="center" minH="100vh">
+        <Spinner size="xl" color="brand.500" />
       </Box>
     );
   }
 
   if (!user) {
-    return null; // will redirect in useEffect
+    return null;
   }
 
   return <AppCon />;
