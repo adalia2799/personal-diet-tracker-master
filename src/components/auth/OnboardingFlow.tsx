@@ -166,11 +166,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
         start: '',
         end: '',
         days: []
-      },
-      weekly_workout_goal: 3,
-      water_intake_goal: 2,
-      sleep_goal: 8,
-      meal_prep_preference: 'daily'
+      }
     },
   });
 
@@ -182,24 +178,20 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
     return () => subscription.unsubscribe();
   }, [watch]);
 
-  // Restore form data from localStorage on component mount
+  // Restore form data from localStorage on mount
   useEffect(() => {
-    const savedData = localStorage.getItem('onboardingFormData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        Object.entries(parsedData).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            setValue(key as keyof OnboardingFormInputs, value as any);
-          }
-        });
-      } catch (error) {
-        console.error('Error restoring form data:', error);
-      }
+    const savedFormData = localStorage.getItem('onboardingFormData');
+    if (savedFormData) {
+      const parsedData = JSON.parse(savedFormData) as Partial<OnboardingFormInputs>;
+      Object.entries(parsedData).forEach(([key, value]) => {
+        if (value !== undefined) {
+          setValue(key as keyof OnboardingFormInputs, value as any);
+        }
+      });
     }
   }, [setValue]);
 
-  // Save current step to localStorage
+  // Save step to localStorage
   useEffect(() => {
     localStorage.setItem('onboardingStep', step.toString());
   }, [step]);
@@ -235,16 +227,17 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
 
     setIsSubmitting(true);
     try {
-      console.log('Current user:', user);
-      console.log('Form data to be saved:', data);
+      // Calculate average work hours
+      const averageWorkHours = calculateAverageWorkHours(data.work_hours);
 
+      // Prepare profile data with proper types
       const profileData = {
         user_id: user.id,
         full_name: data.full_name,
         age: data.age,
         gender: data.gender,
-        profession: data.profession,
-        work_hours: calculateAverageWorkHours(data.work_hours),
+        profession: data.profession || '',
+        work_hours: averageWorkHours,
         height_cm: data.height_cm,
         weight_kg: data.weight_kg,
         activity_level: data.activity_level,
@@ -252,21 +245,20 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
         allergies: data.allergies || [],
         custom_allergies: data.custom_allergies || null,
         medical_conditions: data.medical_conditions || [],
-        preferred_meal_times: data.preferred_meal_times || {},
-        fitness_level: (data.fitness_level || 'beginner') as 'beginner' | 'intermediate' | 'advanced',
-        preferred_workout_days: data.preferred_workout_days || [],
-        goal_type: data.goal_type,
+        fitness_level: data.fitness_level || 'beginner',
+        goal_type: data.goal_type || 'maintain_weight',
         target_weight: data.target_weight || null,
         target_date: data.target_date || null,
-        weekly_workout_goal: data.weekly_workout_goal || 3,
-        water_intake_goal: data.water_intake_goal || 2,
+        weekly_workout_goal: data.weekly_workout_goal || 0,
+        water_intake_goal: data.water_intake_goal || 0,
         sleep_goal: data.sleep_goal || 8,
         meal_prep_preference: data.meal_prep_preference || 'daily',
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      console.log('Attempting to save profile data:', profileData);
+      console.log('Saving profile data:', profileData);
+
+      // Save profile data to Supabase
       const { error: profileError } = await supabase
         .from('user_profiles')
         .upsert([profileData], {
@@ -274,31 +266,13 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onOnboardingComplete })
         });
 
       if (profileError) {
-        console.error('Profile save error:', profileError);
-        throw new Error(`Failed to save profile: ${profileError.message}`);
-      }
-      console.log('Profile saved successfully');
-
-      // Trigger onboarding workflow
-      try {
-        await triggerOnboarding({
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-          context: {
-            platform: 'web',
-            source: 'onboarding-flow'
-          }
-        });
-        console.log('Onboarding workflow triggered');
-      } catch (onboardingError) {
-        console.error('Failed to trigger onboarding workflow:', onboardingError);
-        // Don't fail the onboarding if the n8n webhook fails
-        // The profile is already saved in Supabase
+        console.error('Error saving profile:', profileError);
+        throw new Error('Failed to save profile data');
       }
 
       // Clear localStorage after successful submission
-      localStorage.removeItem('onboardingFormData');
       localStorage.removeItem('onboardingStep');
+      localStorage.removeItem('onboardingFormData');
 
       toast({
         title: 'Success',

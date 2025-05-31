@@ -162,8 +162,18 @@ const AppCon: React.FC = () => {
   };
 
   const handleNavigate = (view: string) => {
+    // Store current view in localStorage before switching
+    localStorage.setItem('lastView', currentView);
     router.push(`/${view}`);
   };
+
+  // Restore last view on component mount
+  useEffect(() => {
+    const lastView = localStorage.getItem('lastView') as AppView;
+    if (lastView && lastView !== 'login' && lastView !== 'signup') {
+      setCurrentView(lastView);
+    }
+  }, []);
 
   const renderContent = () => {
     if (isLoading || isLoadingOnboardingStatus) {

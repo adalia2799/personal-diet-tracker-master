@@ -52,14 +52,7 @@ const userProfileSchema = z.object({
     .min(2, 'Profession must be at least 2 characters')
     .max(100, 'Profession must not exceed 100 characters'),
   workHours: z.object({
-    monday: z.number().int().min(0).max(24).optional(),
-    tuesday: z.number().int().min(0).max(24).optional(),
-    wednesday: z.number().int().min(0).max(24).optional(),
-    thursday: z.number().int().min(0).max(24).optional(),
-    friday: z.number().int().min(0).max(24).optional(),
-    saturday: z.number().int().min(0).max(24).optional(),
-    sunday: z.number().int().min(0).max(24).optional(),
-    average_hours: z.number().int().optional()
+    average_hours: z.number().int().min(0).max(24).optional()
   }),
   heightCm: z.number()
     .min(50, 'Height must be at least 50 cm')
@@ -122,13 +115,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
       gender: undefined,
       profession: '',
       workHours: {
-        monday: undefined,
-        tuesday: undefined,
-        wednesday: undefined,
-        thursday: undefined,
-        friday: undefined,
-        saturday: undefined,
-        sunday: undefined,
         average_hours: 0
       },
       heightCm: undefined,
@@ -172,13 +158,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
             gender: data.gender || undefined,
             profession: data.profession || '',
             workHours: {
-              monday: undefined,
-              tuesday: undefined,
-              wednesday: undefined,
-              thursday: undefined,
-              friday: undefined,
-              saturday: undefined,
-              sunday: undefined,
               average_hours: data.work_hours || 0
             },
             heightCm: data.height_cm || undefined,
@@ -189,20 +168,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
             customAllergies: data.custom_allergies || '',
             medicalConditions: data.medical_conditions || [],
             fitnessLevel: data.fitness_level || undefined,
-            goal: data.goal || undefined,
+            goal: data.goal_type || undefined,
             sleepHours: data.sleep_hours || undefined,
           });
 
           // Check for missing required fields
           const missingFields = [];
           if (!data.profession) missingFields.push('Profession');
-          if (!data.work_hours) missingFields.push('Work Hours');
+          if (data.work_hours === null || data.work_hours === undefined) missingFields.push('Work Hours');
           if (!data.dietary_restrictions) missingFields.push('Dietary Restrictions');
           if (!data.allergies) missingFields.push('Allergies');
           if (!data.medical_conditions) missingFields.push('Medical Conditions');
           if (!data.fitness_level) missingFields.push('Fitness Level');
-          if (!data.goal) missingFields.push('Goals');
-          if (!data.sleep_hours) missingFields.push('Sleep Hours');
 
           if (missingFields.length > 0) {
             toast({
@@ -256,36 +233,40 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
 
     setIsSavingProfile(true);
     try {
-      console.log('Saving profile data:', data);
-      const averageHours = calculateAverageHours(data.workHours);
+      console.log('Raw form data:', data);
+      const averageHours = data.workHours.average_hours || 0;
+      
+      // Match the structure used in OnboardingFlow
+      const profileData = {
+        user_id: user.id,
+        full_name: data.fullName,
+        age: data.age,
+        gender: data.gender,
+        profession: data.profession,
+        work_hours: averageHours,
+        height_cm: data.heightCm,
+        weight_kg: data.weightKg,
+        activity_level: data.activityLevel,
+        dietary_restrictions: data.dietaryRestrictions || [],
+        allergies: data.allergies || [],
+        custom_allergies: data.customAllergies || null,
+        medical_conditions: data.medicalConditions || [],
+        fitness_level: data.fitnessLevel || 'beginner',
+        goal_type: data.goal || 'maintain_weight',
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Final profile data being sent:', profileData);
       
       const { error } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          full_name: data.fullName,
-          age: data.age,
-          gender: data.gender,
-          profession: data.profession,
-          work_hours: averageHours,
-          height_cm: data.heightCm,
-          weight_kg: data.weightKg,
-          activity_level: data.activityLevel,
-          dietary_restrictions: data.dietaryRestrictions,
-          allergies: data.allergies,
-          custom_allergies: data.customAllergies,
-          medical_conditions: data.medicalConditions,
-          fitness_level: data.fitnessLevel,
-          goal: data.goal,
-          sleep_hours: data.sleepHours,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert([profileData], {
           onConflict: 'user_id'
         });
 
       if (error) {
         console.error('Error saving profile:', error);
-        throw error;
+        throw new Error(error.message || 'Failed to update profile');
       }
 
       toast({
@@ -296,6 +277,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
         isClosable: true,
       });
 
+      // Reset form state
+      reset(data);
+
       setTimeout(() => {
         router.push('/dashboard');
       }, 1000);
@@ -303,7 +287,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
       console.error('Error in onSubmit:', err);
       toast({
         title: 'Error',
-        description: 'Failed to update profile. Please try again.',
+        description: err instanceof Error ? err.message : 'Failed to update profile. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -435,42 +419,29 @@ const UserProfile: React.FC<UserProfileProps> = ({ onViewChange }) => {
             </FormControl>
 
             <FormControl id="workHours" isInvalid={!!errors.workHours}>
-              <FormLabel color="text.dark">Work Hours</FormLabel>
-              <Stack spacing={4}>
-                {(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as WorkDay[]).map((day) => (
-                  <HStack key={day}>
-                    <Text width="100px" textTransform="capitalize">{day}:</Text>
-                    <NumberInput
-                      min={0}
-                      max={24}
-                      precision={1}
-                      step={0.5}
-                      onChange={(_, valueAsNumber) => {
-                        setValue(`workHours.${day}` as const, valueAsNumber);
-                        const currentHours = watch('workHours');
-                        const average = calculateAverageHours(currentHours);
-                        setValue('workHours.average_hours', average);
-                        trigger('workHours');
-                      }}
-                      value={watch(`workHours.${day}` as const)}
-                    >
-                      <NumberInputField
-                        {...register(`workHours.${day}` as const, { valueAsNumber: true })}
-                        placeholder="Hours"
-                        borderColor="brand.200"
-                        _focus={{ borderColor: 'brand.300', boxShadow: `0 0 0 1px ${theme.colors.brand['300']}` }}
-                      />
-                      <NumberInputStepper>
-                        <NumberIncrementStepper />
-                        <NumberDecrementStepper />
-                      </NumberInputStepper>
-                    </NumberInput>
-                  </HStack>
-                ))}
-                <Box mt={2} p={2} bg="gray.50" borderRadius="md">
-                  <Text fontWeight="bold">Average Daily Hours: {watch('workHours.average_hours') || 0}</Text>
-                </Box>
-              </Stack>
+              <FormLabel color="text.dark">Average Work Hours per Day</FormLabel>
+              <NumberInput
+                min={0}
+                max={24}
+                precision={1}
+                step={0.5}
+                onChange={(_, valueAsNumber) => {
+                  setValue('workHours.average_hours', valueAsNumber);
+                  trigger('workHours');
+                }}
+                value={watch('workHours.average_hours')}
+              >
+                <NumberInputField
+                  {...register('workHours.average_hours', { valueAsNumber: true })}
+                  placeholder="Hours per day"
+                  borderColor="brand.200"
+                  _focus={{ borderColor: 'brand.300', boxShadow: `0 0 0 1px ${theme.colors.brand['300']}` }}
+                />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
               <FormErrorMessage>{errors.workHours?.message}</FormErrorMessage>
             </FormControl>
 
