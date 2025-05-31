@@ -199,15 +199,40 @@ const GoalSetting: React.FC<GoalSettingProps> = ({ onViewChange }) => {
 
     setIsSavingGoals(true);
     try {
-      const { error } = await supabase
+      // First check if goals exist for this user
+      const { data: existingGoals, error: fetchError } = await supabase
         .from('user_goals')
-        .upsert({
-          user_id: user.id,
-          ...data,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      let error;
+      if (existingGoals) {
+        // Update existing goals
+        const { error: updateError } = await supabase
+          .from('user_goals')
+          .update({
+            ...data,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+        error = updateError;
+      } else {
+        // Insert new goals
+        const { error: insertError } = await supabase
+          .from('user_goals')
+          .insert({
+            user_id: user.id,
+            ...data,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 
